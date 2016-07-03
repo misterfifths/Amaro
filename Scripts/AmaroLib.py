@@ -5,7 +5,7 @@ sys.path.append('/System/Library/Frameworks/Python.framework/Versions/Current/Ex
 
 import os
 from collections import defaultdict
-import types
+from types import ModuleType
 import Foundation
 from fnmatch import fnmatch
 import unicodedata
@@ -32,7 +32,7 @@ def lazyprop(fn):
     return _lazyprop
 
 
-class AmaroLibModule(types.ModuleType):
+class AmaroLibModule(ModuleType):
     REPORT_URL = 'https://github.com/crushlovely/Amaro/issues'
 
     def __init__(self):
@@ -43,6 +43,7 @@ class AmaroLibModule(types.ModuleType):
         self.infoPlistFormat = None
 
         self._punct_re = re.compile(r'[\t !"#$%&\'()*\-/<=>?@\[\\\]^_`{|},.]+')
+        self._identifier_beginning_re = re.compile(r'^[A-Za-z$_]')
 
 
     #### Build environment predicates
@@ -240,6 +241,10 @@ class AmaroLibModule(types.ModuleType):
         # Tries to remove the given affix from the end or beginning of 
         # s (as determined by isSuffix). Returns a tuple (newS, didStrip).
         def stripIfPossible(s, affix, isSuffix):
+            # Don't strip everything away
+            if s == affix:
+                return (s, False)
+
             if isSuffix and s.endswith(affix):
                 return (s[:-len(affix)], True)
             elif not isSuffix and s.startswith(affix):
@@ -272,8 +277,8 @@ class AmaroLibModule(types.ModuleType):
 
             return s
 
-        s = stripUntilExhausted(s, prefixes, False)
-        return stripUntilExhausted(s, suffixes, True)
+        s = stripUntilExhausted(s, suffixes, True)
+        return stripUntilExhausted(s, prefixes, False)
 
     def variableNameForString(self, id_, prefixesToStrip = None, suffixesToStrip = None, lower = True):
         # Split everything apart on illegal characters, then recombine,
@@ -296,15 +301,23 @@ class AmaroLibModule(types.ModuleType):
         if lower:
             result = self.smartLowerCase(result)
 
+        # Bit of a hail mary... if it doesn't begin with a valid character, prepend an underscore
+        if not self._identifier_beginning_re.match(result):
+            result = '_' + result
+
         return result
 
     def smartLowerCase(self, s):
         # If the second character is capitalized, let it stand. Assume
         # the string has a prefix (e.g. "HTTPError"), or is an abbreviation.
-        if len(s) > 2 and s[1].isupper():
-            return s
 
-        return s[0].lower() + s[1:]
+        if len(s) >= 2:
+            if s[1].isupper():
+                return s
+
+            return s[0].lower() + s[1:]
+
+        return s.lower()
 
     def die(self, message):
         print('error: ' + message, file = sys.stderr)
