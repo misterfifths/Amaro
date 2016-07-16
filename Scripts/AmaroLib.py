@@ -4,7 +4,6 @@ import sys
 sys.path.append('/System/Library/Frameworks/Python.framework/Versions/Current/Extras/lib/python/PyObjC')
 
 import os
-from collections import defaultdict
 from types import ModuleType
 import Foundation
 from fnmatch import fnmatch
@@ -210,16 +209,12 @@ class AmaroLibModule(ModuleType):
             d = os.environ.copy().update(defaults)
         else:
             d = os.environ
-        
-        if not missingKeyIsFatal:
-            d = defaultdict(str, d)
 
         try:
             return s.format(**d)
         except KeyError, e:
-            # Since we're using a defaultdict in the !missingKeyIsFatal case, this
-            # exception will only happen if this is fatal.
-            self.dieOverMissingEnvVariable(e.message)
+            if missingKeyIsFatal:
+                self.dieOverMissingEnvVariable(e.message)
 
     def bareFilename(self, fn):
         return os.path.splitext(os.path.basename(fn))[0]
