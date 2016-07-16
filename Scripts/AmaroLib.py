@@ -205,16 +205,29 @@ class AmaroLibModule(ModuleType):
         self.dieOverMissingEnvVariable(varName)
 
     def envFormat(self, s, defaults = None, missingKeyIsFatal = True):
+        d = os.environ
+
         if defaults:
-            d = os.environ.copy().update(defaults)
-        else:
-            d = os.environ
+            d = d.copy()
+            for k, v in defaults.iteritems():
+                d.setdefault(k, v)
 
         try:
             return s.format(**d)
         except KeyError, e:
+            missingKey = e.message
+
             if missingKeyIsFatal:
-                self.dieOverMissingEnvVariable(e.message)
+                self.dieOverMissingEnvVariable(missingKey)
+            else:
+                # Extend defaults to have an empty string for the missing key and try again
+                if defaults:
+                    defaults = defaults.copy()
+                else:
+                    defaults = {}
+
+                defaults[missingKey] = ''
+                return self.envFormat(s, defaults, False)
 
     def bareFilename(self, fn):
         return os.path.splitext(os.path.basename(fn))[0]
